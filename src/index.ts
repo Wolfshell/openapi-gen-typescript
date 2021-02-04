@@ -94,6 +94,7 @@ async function getCodeFromContent(
 
 export async function gen(options: {
   url?: string;
+  path?: string;
   version: string;
   object?: OpenAPI.Document;
   // dir of output files
@@ -105,6 +106,7 @@ export async function gen(options: {
 }) {
   const {
     url,
+    path: filePath,
     version,
     object,
     fetchModuleFile = `${__dirname}/defaultFetch.ts`,
@@ -123,6 +125,15 @@ export async function gen(options: {
       openApiData = openapi.openapi || await swaggerParser.dereference(openapi.openapi);
     } else {
       openApiData = await swaggerParser.parse(url) as OpenAPIV3.Document;
+    }
+  } else if (filePath) {
+    if (version === '2') {
+      const openapi = await swagger2openapi.convertFile(filePath, {
+        patch: true,
+      });
+      openApiData = openapi.openapi || await swaggerParser.dereference(openapi.openapi);
+    } else {
+      openApiData = await swaggerParser.parse(filePath) as OpenAPIV3.Document;
     }
   } else if (!object) {
     throw 'option: url or object must be specified one'
@@ -162,8 +173,8 @@ export async function gen(options: {
             responses,
           } = objectElement;
 
-          let namespaceName = camelcase(operationId || `${method.toLowerCase()}${getCamelcase(urlPath, { pascalCase: true })}`, { pascalCase: true });
-          namespaceName = namespaceName.replace(/[^a-zA-Z0-9_]/g, "");
+          let namespaceName = operationId || `${method.toLowerCase()}${getCamelcase(urlPath, { pascalCase: true })}`;
+          namespaceName = camelcase(namespaceName.replace(/[^a-zA-Z0-9_]/g, ""), { pascalCase: true });
           const responseTypeNames: string[] = [];
           const responsesCode: string = (await Promise.all(Object.keys(responses as Object)
             .filter(key => key !== 'default')
